@@ -1,5 +1,6 @@
 import Debug from "debug";
 import fs from "fs/promises";
+import { IFindNodeData, IMessageBody, NodeSearchResult } from "../interface";
 const debug = Debug("seedserver:peers");
 
 export const getAllSeedServer = async (
@@ -18,20 +19,52 @@ export const getRandomSeedServer = (seedServers: string[]) => {
 
 export const findNodeAddress = async ({
   nodeId,
-  seedServer
-}: {
-  nodeId: string;
-  seedServer: string;
-}): Promise<string | null> => {
+  seedServer,
+  requestorNode,
+  metadata = ""
+}: IFindNodeData): Promise<NodeSearchResult> => {
+  debug("Find node address: ", { nodeId, seedServer, requestorNode });
   const URL = `${seedServer}/search?nodeId=${nodeId}`;
-  const response = await fetch(URL);
+  const response = await fetch(URL, {
+    headers: {
+      "X-REQ-NODE": requestorNode,
+      "X-METADATA": metadata
+    }
+  });
   if (response.ok) {
     debug("Yay found something");
     const address = await response.text();
-    return address;
+    const updatedmetadata = response.headers.get("X-REQ-FLOW");
+    return {
+      found: true,
+      address,
+      message: "Found the address",
+      metadata: updatedmetadata.split(",")
+    };
   } else {
     debug("Ohh no cannot find address");
   }
 
-  return null;
+  return {
+    found: false,
+    address: null,
+    message: await response.text(),
+    metadata: metadata.split(",")
+  };
+};
+
+export const sendMessageToNode = async (
+  data: IMessageBody,
+  fromNode: string
+) => {
+  return await fetch(`${data.toNode}/got`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: data.message,
+      fromNode
+    }),
+    headers: {
+      "content-type": "application/json"
+    }
+  });
 };

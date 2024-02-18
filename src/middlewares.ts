@@ -3,6 +3,18 @@ const debug = Debug("core:middlewares");
 import { Request, Response, NextFunction } from "express";
 import { NotFoundError } from "./errors";
 
+export const checkRequestorNodeId = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (req.get("X-REQ-NODE")) {
+    next();
+  } else {
+    res.status(400).send("Requestor nodeID is not present");
+  }
+};
+
 export const notFound = (
   req: Request,
   res: Response,

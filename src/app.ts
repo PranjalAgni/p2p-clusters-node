@@ -10,7 +10,8 @@ import { customMetric, jsonObjectMetric } from "./prometheusMetrics";
 import {
   findNodeAddress,
   getAllSeedServer,
-  getRandomSeedServer
+  getRandomSeedServer,
+  sendMessageToNode
 } from "./utils/peers";
 import { registerToSeedServer } from "./utils/register";
 import { IMessageBody } from "./interface";
@@ -48,14 +49,37 @@ const initalizeApp = async (nodeId: string): Promise<express.Application> => {
       return res.status(400).send("Bad request");
     }
 
-    debug("Request body: ", req.body);
-    const toNodeAddress = await findNodeAddress({
+    const nodeAddressResponse = await findNodeAddress({
       nodeId: body.toNode,
-      seedServer: randomSeedServer
+      seedServer: randomSeedServer,
+      requestorNode: `http://localhost:${process.env.PORT}`
     });
 
-    debug("To Node address: ", toNodeAddress);
-    res.send(`OK: ${toNodeAddress}`);
+    debug("To Node address: ", nodeAddressResponse);
+    if (!nodeAddressResponse.found) {
+      return res.status(500).send("Unable to find the address of target node");
+    }
+
+    const messageResponse = await sendMessageToNode(
+      {
+        toNode: nodeAddressResponse.address,
+        message: body.message
+      },
+      nodeId
+    );
+
+    if (!messageResponse.ok) {
+      return res.status(500).send("Problem delivering message to the node");
+    }
+
+    return res.status(200).send("Successfully sent the message");
+  });
+
+  app.post("/got", (req: express.Request, res: express.Response) => {
+    const message = req.body.message;
+    const fromNodeId = req.body.fromNode;
+    debug(`Recieved ${message} from node ${fromNodeId}`);
+    res.status(200).send("OK");
   });
 
   app.get("/something", (req: express.Request, res: express.Response) => {

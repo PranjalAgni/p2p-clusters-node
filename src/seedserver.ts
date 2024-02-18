@@ -4,7 +4,7 @@ import path from "path";
 import express, { Request, Response } from "express";
 import helmet from "helmet";
 import morgan from "morgan";
-import { errorHandler, notFound } from "./middlewares";
+import { checkRequestorNodeId, errorHandler, notFound } from "./middlewares";
 import { findNodeAddress, getAllSeedServer } from "./utils/peers";
 const debug = Debug("seedserver");
 
@@ -45,32 +45,49 @@ const startup = async () => {
     res.status(200).send("OK ✅");
   });
 
-  app.get("/search", async (req: Request, res: Response) => {
-    const nodeId = req.query?.nodeId as string;
-    if (!nodeId) {
-      return res.status(400).send("Bad Request ❌");
-    }
-
-    if (knownMap.has(nodeId)) {
-      return res.status(200).send(knownMap.get(nodeId));
-    }
-
-    // if not in known list than find in peer list
-    for (const peerServer of peerSeedServers) {
-      const address = await findNodeAddress({
-        nodeId,
-        seedServer: peerServer
-      });
-      if (address) {
-        knownMap.set(nodeId, address);
-        return res.status(200).send(knownMap.get(address));
+  app.get(
+    "/search",
+    checkRequestorNodeId,
+    async (req: Request, res: Response) => {
+      const nodeId = req.query?.nodeId as string;
+      if (!nodeId) {
+        return res.status(400).send("Bad Request ❌");
       }
-    }
 
-    res
-      .status(500)
-      .send("Ohh I asked all seed nodes but couldn't find the address");
-  });
+      if (knownMap.has(nodeId)) {
+        res.set("X-REQ-FLOW", `http://localhost:${process.env.PORT}`);
+        return res.status(200).send(knownMap.get(nodeId));
+      }
+
+      const requestedFromNode = req.get("X-REQ-NODE");
+      const metadata = req.get("X-METADATA");
+
+      // if not in known list than find in peer list
+      for (const peerServer of peerSeedServers) {
+        // don't send request to seed server who is asking for address
+        // as this will cause request havoc
+        if (peerServer === requestedFromNode) {
+          continue;
+        }
+        const addressResult = await findNodeAddress({
+          nodeId,
+          seedServer: peerServer,
+          requestorNode: `http://localhost:${process.env.PORT}`,
+          metadata: [metadata, peerServer].join(",")
+        });
+
+        if (addressResult.found) {
+          res.set("X-REQ-FLOW", addressResult.metadata);
+          knownMap.set(nodeId, addressResult.address);
+          return res.status(200).send(addressResult.address);
+        }
+      }
+
+      res
+        .status(500)
+        .send("Ohh I asked all seed nodes but couldn't find the address");
+    }
+  );
 
   app.use(notFound);
   app.use(errorHandler);
