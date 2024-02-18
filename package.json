@@ -6,7 +6,8 @@
   "scripts": {
     "clean": "rimraf ./dist",
     "dev2": "nodemon",
-    "dev": "cross-env DEBUG=* NODE_ENV=development PORT=5000 ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev": "cross-env DEBUG=node* NODE_ENV=development ts-node-dev --respawn --transpile-only src/server.ts",
+    "seed": "cross-env DEBUG=seedserver* NODE_ENV=development ts-node-dev --respawn --transpile-only src/seedserver.ts",
     "start": "cross-env NODE_ENV=production node dist/server.js",
     "watch": "tsc -w"
   },
