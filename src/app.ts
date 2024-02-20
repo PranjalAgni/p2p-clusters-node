@@ -78,7 +78,7 @@ const initalizeApp = async (nodeId: string): Promise<express.Application> => {
   app.post("/got", (req: express.Request, res: express.Response) => {
     const message = req.body.message;
     const fromNodeId = req.body.fromNode;
-    debug(`Recieved ${message} from node ${fromNodeId}`);
+    debug(`\n***** Recieved ${message} from node ${fromNodeId} ****\n`);
     res.status(200).send("OK");
   });
 
