@@ -76,6 +76,7 @@ const initalizeApp = async (nodeId: string): Promise<express.Application> => {
   });
 
   app.post("/got", (req: express.Request, res: express.Response) => {
+    // we went zero 40 today 24th feb log
     const message = req.body.message;
     const fromNodeId = req.body.fromNode;
     debug(`\n***** Recieved ${message} from node ${fromNodeId} ****\n`);
